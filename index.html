@@ -7,18 +7,12 @@
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  <meta name="apple-mobile-web-app-title" content="MyWebSite" />
-  <link rel="manifest" href="/site.webmanifest" />
   <style>
     :root {
       --primary: #3a86ff;
       --success: #2ec4b6;
-      --danger: #e71d36;
-      --warning: #ff9f1c;
+      --danger: #1d3be7;
+      --warning: #158bc2;
       --dark: #011627;
       --light: #fdfffc;
     }
@@ -179,7 +173,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: linear-gradient(135deg, #057ddf, #0aadca);
+      background: linear-gradient(135deg, #211ed6, #1793e6);
       color: white;
       display: flex;
       flex-direction: column;
@@ -199,11 +193,11 @@
     }
     
     .toktok-logo span:first-child {
-      color: #0f0307;
+      color: #240a12;
     }
     
     .toktok-logo span:last-child {
-      color: #00FFAA;
+      color: #1e8ac9;
     }
     
     .lock-screen h2 {
@@ -348,7 +342,7 @@
       </div>
       
       <div id="result" class="result-card">
-        <div class="result-icon">👁️</div>
+        <div class="result-icon">👁</div>
         <div class="result-title">Escáner listo</div>
         <div class="result-message">Escanea el código QR del empleado</div>
       </div>
@@ -364,6 +358,10 @@
     const SUPABASE_URL = "https://ksyizqjirpbrbkcawumo.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzeWl6cWppcnBicmJrY2F3dW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzOTE5NDAsImV4cCI6MjA3MDk2Nzk0MH0.GggOYF9kisP6td33MdJn8Y4YZa4h5m72C56NXexNnjM";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Configuración del bot de Telegram (REEMPLAZA ESTOS VALORES)
+    const TELEGRAM_BOT_TOKEN = 'TU_BOT_TOKEN_AQUI';
+    const TELEGRAM_CHAT_ID = 'TU_CHAT_ID_AQUI';
 
     // Variables globales
     const resultDiv = document.getElementById("result");
@@ -445,7 +443,7 @@
       const diff = new Date(end) - new Date(start);
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      return `${hours}h ${minutes}m`;
+      return ${hours}h ${minutes}m;
     }
 
     // Mostrar cuenta regresiva
@@ -507,6 +505,31 @@
       console.log('Error escaneo:', error);
     }
 
+    // Función para enviar mensaje a Telegram
+    async function sendTelegramNotification(message) {
+      try {
+        const url = https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text: message,
+            parse_mode: 'HTML'
+          })
+        });
+        
+        const data = await response.json();
+        if (!data.ok) {
+          console.error('Error al enviar mensaje a Telegram:', data);
+        }
+      } catch (error) {
+        console.error('Error al enviar notificación a Telegram:', error);
+      }
+    }
+
     // Procesar asistencia
     async function handleAttendance(qrCode) {
       try {
@@ -540,7 +563,7 @@
               attendance_date: today,
               check_in: now,
               device: 'QR Web',
-              notes: `Entrada: ${formatTime(now)}`
+              notes: Entrada: ${formatTime(now)}
             }]);
 
           if (error) throw error;
@@ -550,6 +573,11 @@
           entrySound.play();
           
           showResult('entry', employee, now);
+          
+          // Enviar notificación a Telegram (SOLO SE AÑADIÓ ESTO)
+          const telegramMessage = 🏢 <b>ENTRADA REGISTRADA</b>\n\n👤 <b>Empleado:</b> ${employee.first_name} ${employee.last_name}\n🆔 <b>ID:</b> ${employee.id}\n🕒 <b>Hora:</b> ${formatTime(now)}\n📅 <b>Fecha:</b> ${today};
+          await sendTelegramNotification(telegramMessage);
+          
           return;
         }
 
@@ -560,7 +588,7 @@
             .from('attendance')
             .update({
               check_out: now,
-              notes: `Entrada: ${formatTime(attendance.check_in)}\nSalida: ${formatTime(now)}\nDuración: ${duration}`
+              notes: Entrada: ${formatTime(attendance.check_in)}\nSalida: ${formatTime(now)}\nDuración: ${duration}
             })
             .eq('id', attendance.id);
 
@@ -571,6 +599,11 @@
           exitSound.play();
           
           showResult('exit', employee, now, attendance.check_in);
+          
+          // Enviar notificación a Telegram (SOLO SE AÑADIÓ ESTO)
+          const telegramMessage = 🚪 <b>SALIDA REGISTRADA</b>\n\n👤 <b>Empleado:</b> ${employee.first_name} ${employee.last_name}\n🆔 <b>ID:</b> ${employee.id}\n⏱ <b>Duración:</b> ${duration}\n🕒 <b>Entrada:</b> ${formatTime(attendance.check_in)}\n🕒 <b>Salida:</b> ${formatTime(now)}\n📅 <b>Fecha:</b> ${today};
+          await sendTelegramNotification(telegramMessage);
+          
           return;
         }
 
@@ -589,7 +622,7 @@
     }
 
     function showResult(type, employee, time, checkInTime = null) {
-      const initials = `${employee.first_name.charAt(0)}${employee.last_name.charAt(0)}`;
+      const initials = ${employee.first_name.charAt(0)}${employee.last_name.charAt(0)};
       
       if (type === 'entry') {
         resultDiv.innerHTML = `
@@ -639,7 +672,7 @@
       }
       else {
         resultDiv.innerHTML = `
-          <div class="result-icon">⚠️</div>
+          <div class="result-icon">⚠</div>
           <div class="result-title">Registro completo</div>
           <div class="employee-info">
             <div class="employee-avatar">${initials}</div>
