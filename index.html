@@ -430,19 +430,36 @@
       }
     }
 
-    // Formatear hora
-    function formatTime(dateTime) {
-      return new Date(dateTime).toLocaleTimeString('es-BO', {
+    // Obtener fecha actual en zona horaria de Bolivia (La Paz)
+    function getCurrentBoliviaDate() {
+      const now = new Date();
+      // Ajustar a zona horaria de Bolivia (UTC-4)
+      const boliviaOffset = -4 * 60; // en minutos
+      const localOffset = now.getTimezoneOffset();
+      const boliviaTime = new Date(now.getTime() + (localOffset - boliviaOffset) * 60 * 1000);
+      return boliviaTime;
+    }
+
+    // Formatear fecha para uso en base de datos (YYYY-MM-DD)
+    function formatDateForDB(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // Formatear hora para mostrar
+    function formatTime(date) {
+      return date.toLocaleTimeString('es-BO', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true,
-        timeZone: 'America/La_Paz'
+        hour12: true
       });
     }
 
     // Calcular duración
     function calculateDuration(start, end) {
-      const diff = new Date(end) - new Date(start);
+      const diff = end - start;
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       return `${hours}h ${minutes}m`;
@@ -520,8 +537,9 @@
         if (empError || !employees) throw new Error('Empleado no encontrado');
 
         const employee = employees;
-        const today = new Date().toISOString().split('T')[0];
-        const now = new Date().toISOString();
+        const nowBolivia = getCurrentBoliviaDate();
+        const today = formatDateForDB(nowBolivia);
+        const nowISO = nowBolivia.toISOString();
 
         // 2. Verificar registro existente
         const { data: attendance, error: attError } = await supabase
@@ -538,9 +556,9 @@
             .insert([{
               employee_id: employee.id,
               attendance_date: today,
-              check_in: now,
+              check_in: nowISO,
               device: 'QR Web',
-              notes: `Entrada: ${formatTime(now)}`
+              notes: `Entrada: ${formatTime(nowBolivia)}`
             }]);
 
           if (error) throw error;
@@ -549,18 +567,19 @@
           entrySound.currentTime = 0;
           entrySound.play();
           
-          showResult('entry', employee, now);
+          showResult('entry', employee, nowBolivia);
           return;
         }
 
         // Caso 2: Tiene entrada pero no salida -> Registrar SALIDA
         if (attendance.check_in && !attendance.check_out) {
-          const duration = calculateDuration(attendance.check_in, now);
+          const checkInDate = new Date(attendance.check_in);
+          const duration = calculateDuration(checkInDate, nowBolivia);
           const { error } = await supabase
             .from('attendance')
             .update({
-              check_out: now,
-              notes: `Entrada: ${formatTime(attendance.check_in)}\nSalida: ${formatTime(now)}\nDuración: ${duration}`
+              check_out: nowISO,
+              notes: `Entrada: ${formatTime(checkInDate)}\nSalida: ${formatTime(nowBolivia)}\nDuración: ${duration}`
             })
             .eq('id', attendance.id);
 
@@ -570,12 +589,14 @@
           exitSound.currentTime = 0;
           exitSound.play();
           
-          showResult('exit', employee, now, attendance.check_in);
+          showResult('exit', employee, nowBolivia, checkInDate);
           return;
         }
 
         // Caso 3: Ya tiene ambos registros hoy
-        showResult('complete', employee, attendance.check_out, attendance.check_in);
+        const checkOutDate = new Date(attendance.check_out);
+        const checkInDate = new Date(attendance.check_in);
+        showResult('complete', employee, checkOutDate, checkInDate);
         
       } catch (error) {
         console.error(error);
